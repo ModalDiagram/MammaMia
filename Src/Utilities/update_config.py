@@ -43,7 +43,7 @@ async def update_site(client,site_name):
         return False
 async def update_all_sites(client):
     try:
-        sites = [['cb01new','CB01'],['guardaserie','Guardaserie'],['eurostreamings','Eurostreaming'],['guardaplay','Guardaflix'],['guardoserie_2','Guardoserie'],['animeworld','AnimeWorld'],['toonitalia','Toonitalia']]
+        sites = [['cb01new','CB01'],['guardaserie','Guardaserie'],['eurostreaming','Eurostreaming'],['guardaplay','Guardaflix'],['guardoserie_2','Guardoserie'],['animeworld','AnimeWorld'],['toonitalia','Toonitalia']]
         for item in sites:
             domain = await fetch_domain(client,item)
             write_config(domain,item)
