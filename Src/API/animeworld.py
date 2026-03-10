@@ -102,40 +102,60 @@ async def get_mp4(anime_url,ismovie,episode,client,i,streams):
 
 
 
-async def search(showname,date,ismovie,episode,client,streams):
+async def search(showname,date,ismovie,episode,client,streams,db_connection):
     search_year = date[:4] 
-    headers = random_headers.generate()
-    link = f'{AW_DOMAIN}/filter?year={search_year}&sort=2&keyword={showname}'
-    response = await client.get(ForwardProxy + link,allow_redirects=True, impersonate = "chrome124", headers = headers, proxies = proxies)
-    if response.status_code == 202:
-        cookies = await security_cookie(response)
-        response = await client.get(ForwardProxy + link,allow_redirects=True, impersonate = "chrome124", proxies = proxies, headers = headers, cookies = cookies)
-    else:
-        cookies = {}
-    soup = BeautifulSoup(response.text,'lxml')
-    anime_list = soup.find_all('a', class_=['poster', 'tooltipstered'])
-    i = 0
-    for anime in anime_list:
-        anime_info_url = f'{AW_DOMAIN}/{anime["data-tip"]}'
-        response = await client.get(ForwardProxy + anime_info_url,allow_redirects=True, impersonate = "chrome124", cookies = cookies, proxies = proxies)
+    anime_urls = db_connection.get_animeworld_urls(showname, date)
+    if len(anime_urls) == 0:    
+        showname_original = showname
+        #Format Showname
+        for key in showname_replace:
+            if key in showname:  # Check if the key is a substring of showname
+                showname = showname.replace(key, showname_replace[key])
+                if "Naruto:" in showname:
+                    showname = showname.replace(":", "")
+                if  "’" in showname:
+                    showname = showname.split("’")[0]
+                if ":" in showname:
+                    showname = showname.split(":")[0]
+                    
+        headers = random_headers.generate()
+        link = f'{AW_DOMAIN}/filter?year={search_year}&sort=2&keyword={showname}'
+        response = await client.get(ForwardProxy + link,allow_redirects=True, impersonate = "chrome124", headers = headers, proxies = proxies)
         if response.status_code == 202:
             cookies = await security_cookie(response)
+            response = await client.get(ForwardProxy + link,allow_redirects=True, impersonate = "chrome124", proxies = proxies, headers = headers, cookies = cookies)
+        else:
+            cookies = {}
+        soup = BeautifulSoup(response.text,'lxml')
+        anime_list = soup.find_all('a', class_=['poster', 'tooltipstered'])
+        for anime in anime_list:
+            anime_info_url = f'{AW_DOMAIN}/{anime["data-tip"]}'
             response = await client.get(ForwardProxy + anime_info_url,allow_redirects=True, impersonate = "chrome124", cookies = cookies, proxies = proxies)
-        pattern = r'<label>Data di uscita:</label>\s*<span>\s*(.*?)\s*</span>'
-        match = re.search(pattern, response.text, re.S)
-        release_date = match.group(1).strip()
-        for ita, eng in months.items():
-            release_date = release_date.replace(ita, eng)
-        release_date_object = datetime.datetime.strptime(release_date, "%d %B %Y")
-        date_object = datetime.datetime.strptime(date, "%Y-%m-%d")
-        release_date = release_date_object.strftime("%Y-%m-%d")
-        if (release_date == date or 
-    release_date == (datetime.datetime.strptime(date, "%Y-%m-%d") + datetime.timedelta(days=1)).strftime("%Y-%m-%d") or
-    release_date == (datetime.datetime.strptime(date, "%Y-%m-%d") - datetime.timedelta(days=1)).strftime("%Y-%m-%d")):
-            anime_url = f'{AW_DOMAIN}{anime["href"]}'
-            streams = await get_mp4(anime_url,ismovie,episode,client,i,streams)
-            i+=1
-            logger.info(f"AnimeWorld Found Results for current ID")
+            if response.status_code == 202:
+                cookies = await security_cookie(response)
+                response = await client.get(ForwardProxy + anime_info_url,allow_redirects=True, impersonate = "chrome124", cookies = cookies, proxies = proxies)
+            pattern = r'<label>Data di uscita:</label>\s*<span>\s*(.*?)\s*</span>'
+            match = re.search(pattern, response.text, re.S)
+            release_date = match.group(1).strip()
+            for ita, eng in months.items():
+                release_date = release_date.replace(ita, eng)
+            release_date_object = datetime.datetime.strptime(release_date, "%d %B %Y")
+            date_object = datetime.datetime.strptime(date, "%Y-%m-%d")
+            release_date = release_date_object.strftime("%Y-%m-%d")
+            if (release_date == date or 
+        release_date == (datetime.datetime.strptime(date, "%Y-%m-%d") + datetime.timedelta(days=1)).strftime("%Y-%m-%d") or
+        release_date == (datetime.datetime.strptime(date, "%Y-%m-%d") - datetime.timedelta(days=1)).strftime("%Y-%m-%d")):
+                anime_url = f'{AW_DOMAIN}{anime["href"]}'
+                anime_urls.append(anime_url)
+        
+        if len(anime_urls) > 0:
+            db_connection.set_animeworld_urls(showname_original, date, anime_urls)
+    
+    i = 0
+    for anime_url in anime_urls:
+        streams = await get_mp4(anime_url,ismovie,episode,client,i,streams)
+        i+=1
+        logger.info(f"AnimeWorld Found Results for current ID")
 
     return streams
 
@@ -148,17 +168,8 @@ async def animeworld(streams, id, client, db_connection):
         else:
             episode = id.split(":")[2]
         showname, date = await get_info_kitsu(kitsu_id, client, db_connection)
-        #Format Showname
-        for key in showname_replace:
-            if key in showname:  # Check if the key is a substring of showname
-                showname = showname.replace(key, showname_replace[key])
-                if "Naruto:" in showname:
-                    showname = showname.replace(":", "")
-                if  "’" in showname:
-                    showname = showname.split("’")[0]
-                if ":" in showname:
-                    showname = showname.split(":")[0]
-        streams = await search(showname,date,ismovie,episode,client,streams)
+        
+        streams = await search(showname,date,ismovie,episode,client,streams,db_connection)
         return streams
     except Exception as e:
         logger.warning(f"Animeworld failed {e}")
@@ -168,12 +179,14 @@ async def test_animeworld():
     async with AsyncSession() as client:
         # Replace with actual id, for example 'anime_id:episode' format
         test_id = "kitsu:49323:1"  # This is an example ID format
-        results = await animeworld({'streams': []},test_id, client)
+        results = await animeworld({'streams': []},test_id, client, db_connection)
         print(results)
 
 if __name__ == "__main__":
     from curl_cffi.requests import AsyncSession
     import asyncio
+    from Src.Utilities.db_connection import db_connection
+    db_connection = db_connection()
     asyncio.run(test_animeworld())
 
 
