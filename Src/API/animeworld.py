@@ -139,7 +139,7 @@ async def search(showname,date,ismovie,episode,client,streams):
 
     return streams
 
-async def animeworld(streams,id,client):
+async def animeworld(streams, id, client, db_connection):
     try:
         kitsu_id = id.split(":")[1]
         ismovie = 1 if len(id.split(":")) == 2 else 0
@@ -147,7 +147,7 @@ async def animeworld(streams,id,client):
             episode = None
         else:
             episode = id.split(":")[2]
-        showname,date = await get_info_kitsu(kitsu_id,client)
+        showname, date = await get_info_kitsu(kitsu_id, client, db_connection)
         #Format Showname
         for key in showname_replace:
             if key in showname:  # Check if the key is a substring of showname

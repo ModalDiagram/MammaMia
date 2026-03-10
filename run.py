@@ -28,6 +28,7 @@ from curl_cffi.requests import AsyncSession
 import base64
 import  Src.Utilities.config as config
 from Src.Utilities.config import setup_logging
+from Src.Utilities.db_connection import db_connection
 level = config.LEVEL
 logger = setup_logging(level)
 from Src.Utilities.loadenv import load_env
@@ -70,6 +71,7 @@ app.add_middleware(SlowAPIMiddleware)
 User_Agent= "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36"
 #Tells Where to look for static files
 static = Jinja2Templates(directory="static")
+db_connection = db_connection()
 
 MANIFEST = {
     "id": "org.stremio.mammamia",
@@ -296,7 +298,7 @@ async def addon_stream(request: Request,config, type, id,):
             logger.info(f"Handling movie or series: {id}")
             if "kitsu" in id:
                 if provider_maps['ANIMEWORLD'] == "1" and AW == "1":
-                    streams = await animeworld(streams,id,client)
+                    streams = await animeworld(streams, id, client, db_connection)
             else:
                 if provider_maps['STREAMINGCOMMUNITY'] == "1" and SC == "1":
                     if provider_maps['SC_MFP'] != "0":

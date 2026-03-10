@@ -224,8 +224,11 @@ async def get_info_imdb(imdb_id, ismovie, type,client):
             return showname,date
 
 
+async def get_info_kitsu(kitsu_id, client, db_connection):
+    res = db_connection.get_animeworld_showname(kitsu_id)
+    if res is not None:
+        return res[0], res[1]
 
-async def get_info_kitsu(kitsu_id,client):
     api_url = f'https://kitsu.io/api/edge/anime/{kitsu_id}'
     response = await client.get(api_url)
     data = json.loads(response.text)
@@ -234,6 +237,8 @@ async def get_info_kitsu(kitsu_id,client):
     except Exception as e:
         showname = data['data']['attributes']['canonicalTitle']
     date = data['data']['attributes']['startDate']
+    
+    db_connection.set_animeworld_showname(kitsu_id, showname, date)
     return showname,date           
 
 
