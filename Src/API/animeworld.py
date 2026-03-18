@@ -200,7 +200,7 @@ async def animeworld(streams, id, client, db_connection):
             episode = None
         else:
             episode = id.split(":")[2]
-            cached_episodes = db_connection.get_episode_urls(kitsu_id, episode)
+            cached_episodes = await db_connection.get_episode_urls(kitsu_id, episode, client)
             
             if len(cached_episodes) > 0:
                 streams['streams'] = [{'title': f'{Icon}Animeworld {ep[1]}', 'url': ep[0],'behaviorHints': {'bingeGroup': 'animeworld'}} for ep in cached_episodes]
